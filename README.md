@@ -1,1 +1,134 @@
-# To-Do-List
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>To‑Do List</title>
+	<meta name="description" content="Simple accessible to-do list with localStorage persistence">
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+	<div class="container">
+		<header>
+			<h1>To‑Do List</h1>
+			<small style="color:var(--muted)">Persistent, accessible, lightweight</small>
+		</header>
+
+		<section class="card" aria-labelledby="task-heading">
+			<h2 id="task-heading" style="font-size:1rem;margin:0 0 12px">Add a task</h2>
+
+			<form id="task-form" aria-describedby="form-desc">
+				<label id="form-desc" class="visually-hidden">Add new task</label>
+				<input id="task-input" type="text" placeholder="What do you need to do?" autocomplete="off" required>
+				<button type="submit">Add</button>
+			</form>
+
+			<ul id="tasks" aria-live="polite" aria-label="Your tasks"></ul>
+
+			<div class="controls">
+				<button id="clear-completed">Clear completed</button>
+				<button id="clear-all">Clear all</button>
+			</div>
+		</section>
+	</div>
+
+	<script>
+		(function(){
+			const form = document.getElementById('task-form');
+			const input = document.getElementById('task-input');
+			const list = document.getElementById('tasks');
+			const clearCompletedBtn = document.getElementById('clear-completed');
+			const clearAllBtn = document.getElementById('clear-all');
+
+			let tasks = JSON.parse(localStorage.getItem('todo.tasks') || '[]');
+
+			function save(){ localStorage.setItem('todo.tasks', JSON.stringify(tasks)); }
+
+			function escapeHTML(s){ return String(s).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+
+			function render(){
+				list.innerHTML = '';
+				if(!tasks.length){ list.innerHTML = '<li class="empty">No tasks yet — add one above.</li>'; return }
+
+				tasks.forEach(task => {
+					const li = document.createElement('li');
+					li.className = 'task' + (task.done ? ' done' : '');
+					li.dataset.id = task.id;
+
+					li.innerHTML = `
+						<label>
+							<input type="checkbox" ${task.done? 'checked' : ''} aria-label="Mark task completed">
+							<span class="text">${escapeHTML(task.text)}</span>
+						</label>
+						<div class="actions">
+							<button class="edit" aria-label="Edit task">Edit</button>
+							<button class="delete" aria-label="Delete task">Delete</button>
+						</div>`;
+
+					list.appendChild(li);
+				});
+			}
+
+			function addTask(text){
+				const t = { id: Date.now().toString(36), text: text, done: false };
+				tasks.unshift(t);
+				save(); render();
+			}
+
+			form.addEventListener('submit', function(e){
+				e.preventDefault();
+				const value = input.value.trim();
+				if(!value) return;
+				addTask(value);
+				input.value = '';
+				input.focus();
+			});
+
+			list.addEventListener('change', function(e){
+				if(e.target.type !== 'checkbox') return;
+				const li = e.target.closest('li');
+				const id = li.dataset.id;
+				const t = tasks.find(x=>x.id===id);
+				if(!t) return;
+				t.done = e.target.checked;
+				save(); render();
+			});
+
+			list.addEventListener('click', function(e){
+				const li = e.target.closest('li');
+				if(!li) return;
+				const id = li.dataset.id;
+				if(e.target.classList.contains('delete')){
+					tasks = tasks.filter(x=>x.id!==id);
+					save(); render();
+					return;
+				}
+				if(e.target.classList.contains('edit')){
+					const t = tasks.find(x=>x.id===id);
+					if(!t) return;
+					const nv = prompt('Edit task', t.text);
+					if(nv === null) return; // cancelled
+					t.text = nv.trim() || t.text;
+					save(); render();
+				}
+			});
+
+			clearCompletedBtn.addEventListener('click', function(){
+				tasks = tasks.filter(x=>!x.done);
+				save(); render();
+			});
+
+			clearAllBtn.addEventListener('click', function(){
+				if(!confirm('Clear all tasks?')) return;
+				tasks = [];
+				save(); render();
+			});
+
+			// initial render
+			render();
+
+		})();
+	</script>
+</body>
+</html>
+  
